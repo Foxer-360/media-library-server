@@ -1,26 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const aws = require('aws-sdk');
-const mediaUpload = require('../services/media/upload');
+const S3Storage = require('../libs/s3storage');
 
 const upload = multer();
 
-const s3 = new aws.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-});
-
+/* POST upload file */
 router.post('/', upload.single('file'), function (req, res, next) {
   try {
-    mediaUpload.upload(s3, req.file, req.body.category, (err, data) => {
+    const storage = new S3Storage(
+      process.env.AWS_ACCESS_KEY,
+      process.env.AWS_SECRET_ACCESS_KEY,
+      process.env.AWS_BUCKET
+    );
+    storage.storage(req.file, req.body.category, (err, data) => {
       if (err) {
-        console.log('err', err);
+        res.status(404).send(err.toString());
       } else {
-        console.log('success', data);
-        res.send('file upload');
+        res.send(data);
       }
     });
+
   } catch (err) {
     res.status(404).send(err.toString());
   }
