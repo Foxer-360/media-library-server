@@ -1,5 +1,7 @@
-const { request } = require('graphql-request')
+const { request } = require('graphql-request');
 const hash = require('../file/hashOfFile');
+const split = require('../file/splitFileName');
+const Jimp = require('jimp');
 
 class MediaStorage {
   constructor(dataStorage, prismaEndpoint) {
@@ -125,6 +127,80 @@ class MediaStorage {
       callback(null, data);
     });
   }
+
+  async createDimension(fileId, newWidth, newHeight, callback) {
+    // search file of id
+    await this.findOne(fileId, (err, data) => {
+      if (data && data.file) {
+        // check mimetype
+        switch (data.file.mimetype) {
+          case Jimp.MIME_BMP:
+          case Jimp.MIME_GIF:
+          case Jimp.MIME_JPEG:
+          case Jimp.MIME_PNG:
+          case Jimp.MIME_TIFF:
+            break;
+          default:
+            callback('unsupported file format', null);
+        }
+
+        // search file content
+        this.dataStorage.getBuffer(data.file.category + data.file.hash + '_' + data.file.filename, (bufferErr, bufferData) => {
+          if (bufferData && bufferData.buffer) {
+            // resize
+            Jimp
+              .read(bufferData.buffer)
+              .then(image => image.resize(
+                parseInt(newWidth, 10) || Jimp.AUTO,
+                parseInt(newHeight, 10) || Jimp.AUTO
+              ))
+              .then(image => {
+                image.getBuffer(data.file.mimetype, async (resizeErr, buffer) => {
+                  if (resizeErr) {
+                    callback(resizeErr, null);
+                  }
+
+                  // generate hash from resize buffer
+                  const resizeHash = await hash.hashOfFile(buffer);
+
+                  // check exists file by buffer hash
+                  this.findByHash(resizeHash, (resizeFileErr, resizeFileData) => {
+                    // resize file not exists
+                    if (resizeFileData && resizeFileData.file !== undefined && resizeFileData.file === null) {
+                      // generate file name
+                      const fileInfo = split.splitFileName(data.file.filename);
+                      const newFileName = `${fileInfo.name}_${newWidth || 'x'}_${newHeight || 'x'}.${fileInfo.ext}`;
+                      const newFile = {
+                        originalname: newFileName,
+                        filename: newFileName,
+                        buffer: buffer,
+                        mimetype: data.file.mimetype,
+                        size: buffer.byteLength
+                      };
+
+                      // save file to storage
+                      this.storage(newFile, data.file.category, (saveErr, saveData) => {
+                        callback(saveErr, saveData);
+                      });
+
+                    } else {
+                      callback(resizeFileErr, resizeFileData);
+                    }
+                  });
+                });
+              });
+
+          } else {
+            callback('Buffer of file not found', null);
+          }
+        });
+
+      } else {
+        callback(err, data);
+      }
+    });
+  }
+
 }
 
 module.exports = MediaStorage;

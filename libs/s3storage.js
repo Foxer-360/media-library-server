@@ -19,8 +19,13 @@ class S3Storage {
       throw new Error('File specification failed');
     }
 
-    const fileSplit = split.splitFileName(originalname);
-    const fileName = S(fileSplit.name).slugify().s + (fileSplit.ext ? '.' + fileSplit.ext : '');
+    let fileName = '';
+    if (file.filename !== undefined) {
+      fileName = file.filename;
+    } else {
+      const fileSplit = split.splitFileName(originalname);
+      fileName = S(fileSplit.name).slugify().s + (fileSplit.ext ? '.' + fileSplit.ext : '');
+    }
 
     let fileCategory = category;
     if (fileCategory !== undefined && fileCategory !== '') {
