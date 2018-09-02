@@ -45,7 +45,8 @@ class S3Storage {
     await this.s3.upload(params, function(err, data) {
       if (!err) {
         data.hash = fileHash;
-        data.originalname = fileName;
+        data.category = fileCategory;
+        data.filename = fileName;
         data.mimetype = mimetype;
         data.size = size;
       }
@@ -74,8 +75,9 @@ class S3Storage {
       if (data && data.Contents) {
         output = data.Contents.map((object, i) => {
           return {
-            fileName: object.Key,
             hash: undefined,
+            category: (fileCategory !== '' ? fileCategory : null),
+            filename: object.Key,
             size: object.Size,
             modify: object.LastModified
           };
@@ -94,9 +96,11 @@ class S3Storage {
     await this.s3.getObject(params, function(err, data) {
       if (data && data.ETag) {
         callback(err, {
-          fileName: fileName,
-          contentType: data.ContentType,
           hash: undefined,
+          category: undefined,
+          fileName: fileName,
+          mimetype: undefined,
+          contentType: data.ContentType,
           size: data.ContentLength,
           modify: data.LastModified
         });

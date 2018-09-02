@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const S3Storage = require('../libs/s3storage');
+const MediaStorage = require('../services/media/mediaStorage');
 
 /* GET files list */
 router.get('/', function(req, res, next) {
@@ -10,9 +11,12 @@ router.get('/', function(req, res, next) {
     process.env.AWS_BUCKET
   );
 
-  const category = req.query && req.query.category ? req.query.category : '';
+  const mediaStorage = new MediaStorage(
+    storage,
+    process.env.PRISMA_ENDPOINT
+  );
 
-  storage.find(null, category, (err, data) => {
+  mediaStorage.find(req.query.category, (err, data) => {
     if (err) {
       res.status(404).send(err.toString());
     } else {
