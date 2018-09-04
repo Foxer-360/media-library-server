@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors')
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
@@ -12,6 +13,8 @@ const createDimension = require('./routes/createDimension');
 const find = require('./routes/find');
 const findOne = require('./routes/findOne');
 const getBuffer = require('./routes/getBuffer');
+
+app.use(cors())
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
