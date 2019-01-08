@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 
 dotenv.config();
-
+  
 const app = express();
 
 const upload = require('./routes/upload');
@@ -13,16 +13,18 @@ const createDimension = require('./routes/createDimension');
 const find = require('./routes/find');
 const findOne = require('./routes/findOne');
 const getBuffer = require('./routes/getBuffer');
+const findByFilename = require('./routes/findByFilename');
 
 app.use(cors())
 
-app.use(bodyParser.json());
+app.use(bodyParser.json());  
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 app.use('/find', find);
 app.use('/findOne', findOne);
-app.use('/getBuffer', getBuffer);
+app.use('/findByFilename', findByFilename);
+app.use('/getBuffer', getBuffer);  
 app.use('/upload', upload);
 app.use('/createDimension', createDimension);
 

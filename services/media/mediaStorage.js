@@ -1,19 +1,24 @@
-const { request } = require('graphql-request');
-const hash = require('../file/hashOfFile');
-const split = require('../file/splitFileName');
-const Jimp = require('jimp');
+const { request } = require("graphql-request");
+const hash = require("../file/hashOfFile");
+const split = require("../file/splitFileName");
+const Jimp = require("jimp");
 
 class MediaStorage {
   constructor(dataStorage, prismaEndpoint) {
     this.dataStorage = dataStorage;
     this.endpoint = prismaEndpoint;
-  };
+  }
 
   async storage(file, category, callback) {
     const { originalname, buffer, mimetype, size } = file;
 
-    if (originalname === undefined || buffer === undefined || mimetype === undefined || size === undefined) {
-      throw new Error('File specification failed');
+    if (
+      originalname === undefined ||
+      buffer === undefined ||
+      mimetype === undefined ||
+      size === undefined
+    ) {
+      throw new Error("File specification failed");
     }
 
     const fileHash = await hash.hashOfFile(buffer);
@@ -22,23 +27,30 @@ class MediaStorage {
       // file not exists
       if (data && data.file !== undefined && data.file === null) {
         // upload to storage
-        await this.dataStorage.storage(file, category, (dataStorageErr, dataStorageData) => {
-          // save to prisma
-          if (dataStorageData && dataStorageData.ETag) {
-            // save uploaded file to MediaStorage
-            this.saveToStorage(dataStorageData, (saveUploadErr, saveUploadData) => {
-              callback(saveUploadErr, saveUploadData);
-            });
-          } else {
-            // unknown or error uploading
-            callback(dataStorageErr, dataStorageData);
+        await this.dataStorage.storage(
+          file,
+          category,
+          (dataStorageErr, dataStorageData) => {
+            // save to prisma
+            if (dataStorageData && dataStorageData.ETag) {
+              // save uploaded file to MediaStorage
+              this.saveToStorage(
+                dataStorageData,
+                (saveUploadErr, saveUploadData) => {
+                  callback(saveUploadErr, saveUploadData);
+                }
+              );
+            } else {
+              // unknown or error uploading
+              callback(dataStorageErr, dataStorageData);
+            }
           }
-        });
+        );
       } else {
         callback(err, data);
       }
     });
-  };
+  }
 
   saveToStorage(fileData, callback) {
     const query = `
@@ -69,7 +81,36 @@ class MediaStorage {
     const query = `{
       files(
         where: {
-          ${category !== undefined && category !== null ? `category: "${category}"` : ``}
+          ${
+            category !== undefined && category !== null
+              ? `category: "${category}"`
+              : ``
+          }
+        }
+      ) {
+        id
+        hash
+        category
+        filename
+        mimetype
+        size
+      }
+    }`;
+
+    request(this.endpoint, query).then(data => {
+      callback(null, data);
+    });
+  }
+
+  findByFilename(filename, callback) {
+    const query = `{
+      files(
+        where: {
+          ${
+            filename !== undefined && filename !== null
+              ? `filename: "${filename}"`
+              : ``
+          }
         }
       ) {
         id
@@ -141,66 +182,84 @@ class MediaStorage {
           case Jimp.MIME_TIFF:
             break;
           default:
-            callback('unsupported file format', null);
+            callback("unsupported file format", null);
         }
 
         // search file content
-        this.dataStorage.getBuffer(data.file.category + data.file.hash + '_' + data.file.filename, (bufferErr, bufferData) => {
-          if (bufferData && bufferData.buffer) {
-            // resize
-            Jimp
-              .read(bufferData.buffer)
-              .then(image => image.resize(
-                parseInt(newWidth, 10) || Jimp.AUTO,
-                parseInt(newHeight, 10) || Jimp.AUTO
-              ))
-              .then(image => {
-                image.getBuffer(data.file.mimetype, async (resizeErr, buffer) => {
-                  if (resizeErr) {
-                    callback(resizeErr, null);
-                  }
+        this.dataStorage.getBuffer(
+          data.file.category + data.file.hash + "_" + data.file.filename,
+          (bufferErr, bufferData) => {
+            if (bufferData && bufferData.buffer) {
+              // resize
+              Jimp.read(bufferData.buffer)
+                .then(image =>
+                  image.resize(
+                    parseInt(newWidth, 10) || Jimp.AUTO,
+                    parseInt(newHeight, 10) || Jimp.AUTO
+                  )
+                )
+                .then(image => {
+                  image.getBuffer(
+                    data.file.mimetype,
+                    async (resizeErr, buffer) => {
+                      if (resizeErr) {
+                        callback(resizeErr, null);
+                      }
 
-                  // generate hash from resize buffer
-                  const resizeHash = await hash.hashOfFile(buffer);
+                      // generate hash from resize buffer
+                      const resizeHash = await hash.hashOfFile(buffer);
 
-                  // check exists file by buffer hash
-                  this.findByHash(resizeHash, (resizeFileErr, resizeFileData) => {
-                    // resize file not exists
-                    if (resizeFileData && resizeFileData.file !== undefined && resizeFileData.file === null) {
-                      // generate file name
-                      const fileInfo = split.splitFileName(data.file.filename);
-                      const newFileName = `${fileInfo.name}_${newWidth || 'x'}_${newHeight || 'x'}.${fileInfo.ext}`;
-                      const newFile = {
-                        originalname: newFileName,
-                        filename: newFileName,
-                        buffer: buffer,
-                        mimetype: data.file.mimetype,
-                        size: buffer.byteLength
-                      };
+                      // check exists file by buffer hash
+                      this.findByHash(
+                        resizeHash,
+                        (resizeFileErr, resizeFileData) => {
+                          // resize file not exists
+                          if (
+                            resizeFileData &&
+                            resizeFileData.file !== undefined &&
+                            resizeFileData.file === null
+                          ) {
+                            // generate file name
+                            const fileInfo = split.splitFileName(
+                              data.file.filename
+                            );
+                            const newFileName = `${fileInfo.name}_${newWidth ||
+                              "x"}_${newHeight || "x"}.${fileInfo.ext}`;
 
-                      // save file to storage
-                      this.storage(newFile, data.file.category, (saveErr, saveData) => {
-                        callback(saveErr, saveData);
-                      });
+                            const newFile = {
+                              originalname: newFileName,
+                              filename: newFileName,
+                              buffer: buffer,
+                              mimetype: data.file.mimetype,
+                              size: buffer.byteLength
+                            };
 
-                    } else {
-                      callback(resizeFileErr, resizeFileData);
+                            // save file to storage
+                            this.storage(
+                              newFile,
+                              data.file.category,
+                              (saveErr, saveData) => {
+                                callback(saveErr, saveData);
+                              }
+                            );
+                          } else {
+                            callback(resizeFileErr, resizeFileData);
+                          }
+                        }
+                      );
                     }
-                  });
+                  );
                 });
-              });
-
-          } else {
-            callback('Buffer of file not found', null);
+            } else {
+              callback("Buffer of file not found", null);
+            }
           }
-        });
-
+        );
       } else {
         callback(err, data);
       }
     });
   }
-
 }
 
 module.exports = MediaStorage;
