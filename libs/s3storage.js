@@ -12,7 +12,7 @@ class S3Storage {
     this.bucket = bucket;
   }
 
-  async storage(file, category, callback) {
+  async storage(file, category, callback, hash = undefined) {
     const { originalname, buffer, mimetype, size } = file;
 
     if (
@@ -44,7 +44,7 @@ class S3Storage {
       }
     }
 
-    const fileHash = await hash.hashOfFile(buffer);
+    const fileHash = hash || await hash.hashOfFile(buffer);
 
     const params = {
       ACL: "public-read",
@@ -129,8 +129,6 @@ class S3Storage {
     };
 
     await this.s3.getObject(params, function(err, data) {
-      console.log("%c Emilio: ", "background: #222; color: #bada55", params, data);
-
       if (data && data.ETag && data.Body && data.Body) {
         callback(err, {
           buffer: data.Body

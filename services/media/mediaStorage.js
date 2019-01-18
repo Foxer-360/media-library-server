@@ -9,7 +9,7 @@ class MediaStorage {
     this.endpoint = prismaEndpoint;
   }
 
-  async storage(file, category, callback) {
+  async storage(file, category, callback, hash = undefined) {
     const { originalname, buffer, mimetype, size } = file;
 
     if (
@@ -21,11 +21,11 @@ class MediaStorage {
       throw new Error("File specification failed");
     }
 
-    const fileHash = await hash.hashOfFile(buffer);
+    const fileHash = hash || (await hash.hashOfFile(buffer));
 
     await this.findByHash(fileHash, async (err, data) => {
       // file not exists
-      if (data && data.file !== undefined && data.file === null) {
+      if (hash || (data && data.file !== undefined && data.file === null)) {
         // upload to storage
         await this.dataStorage.storage(
           file,
@@ -34,17 +34,21 @@ class MediaStorage {
             // save to prisma
             if (dataStorageData && dataStorageData.ETag) {
               // save uploaded file to MediaStorage
-              this.saveToStorage(
-                dataStorageData,
-                (saveUploadErr, saveUploadData) => {
-                  callback(saveUploadErr, saveUploadData);
-                }
-              );
+
+              if (!hash) {
+                this.saveToStorage(
+                  dataStorageData,
+                  (saveUploadErr, saveUploadData) => {
+                    callback(saveUploadErr, saveUploadData);
+                  }
+                );
+              }
             } else {
               // unknown or error uploading
               callback(dataStorageErr, dataStorageData);
             }
-          }
+          },
+          fileHash
         );
       } else {
         callback(err, data);
@@ -207,45 +211,29 @@ class MediaStorage {
                       }
 
                       // generate hash from resize buffer
-                      const resizeHash = await hash.hashOfFile(buffer);
+                      // const resizeHash = await hash.hashOfFile(buffer);
 
-                      // check exists file by buffer hash
-                      this.findByHash(
-                        resizeHash,
-                        (resizeFileErr, resizeFileData) => {
-                          // resize file not exists
-                          if (
-                            resizeFileData &&
-                            resizeFileData.file !== undefined &&
-                            resizeFileData.file === null
-                          ) {
-                            // generate file name
-                            const fileInfo = split.splitFileName(
-                              data.file.filename
-                            );
-                            const newFileName = `${fileInfo.name}_${newWidth ||
-                              "x"}_${newHeight || "x"}.${fileInfo.ext}`;
+                      // generate file name
+                      const fileInfo = split.splitFileName(data.file.filename);
+                      const newFileName = `${fileInfo.name}_${newWidth ||
+                        "x"}_${newHeight || "x"}.${fileInfo.ext}`;
 
-                            const newFile = {
-                              originalname: newFileName,
-                              filename: newFileName,
-                              buffer: buffer,
-                              mimetype: data.file.mimetype,
-                              size: buffer.byteLength
-                            };
+                      const newFile = {
+                        originalname: newFileName,
+                        filename: newFileName,
+                        buffer: buffer,
+                        mimetype: data.file.mimetype,
+                        size: buffer.byteLength
+                      };
 
-                            // save file to storage
-                            this.storage(
-                              newFile,
-                              data.file.category,
-                              (saveErr, saveData) => {
-                                callback(saveErr, saveData);
-                              }
-                            );
-                          } else {
-                            callback(resizeFileErr, resizeFileData);
-                          }
-                        }
+                      // save file to storage
+                      this.storage(
+                        newFile,
+                        data.file.category,
+                        (saveErr, saveData) => {
+                          callback(saveErr, saveData);
+                        },
+                        data.file.hash
                       );
                     }
                   );
