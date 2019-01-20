@@ -12,7 +12,7 @@ const _bufferToStream = (buffer) => {
  * Return the hash of the file buffer
  *
  * @param {Buffer} buffer
- */
+ */  
 exports.hashOfFile = (buffer) =>
   new Promise((resolve, reject) => {
     try {

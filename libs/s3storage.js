@@ -1,7 +1,7 @@
-const aws = require('aws-sdk');
-const hash = require('../services/file/hashOfFile');
-const split = require('../services/file/splitFileName');
-const S = require('string');
+const aws = require("aws-sdk");
+const hash = require("../services/file/hashOfFile");
+const split = require("../services/file/splitFileName");
+const S = require("string");
 
 class S3Storage {
   constructor(accessKey, secretAccessKey, bucket) {
@@ -12,35 +12,42 @@ class S3Storage {
     this.bucket = bucket;
   }
 
-  async storage(file, category, callback) {
+  async storage(file, category, callback, hash = undefined) {
     const { originalname, buffer, mimetype, size } = file;
 
-    if (originalname === undefined || buffer === undefined || mimetype === undefined || size === undefined) {
-      throw new Error('File specification failed');
+    if (
+      originalname === undefined ||
+      buffer === undefined ||
+      mimetype === undefined ||
+      size === undefined
+    ) {
+      throw new Error("File specification failed");
     }
 
-    let fileName = '';
+    let fileName = "";
     if (file.filename !== undefined) {
       fileName = file.filename;
     } else {
       const fileSplit = split.splitFileName(originalname);
-      fileName = S(fileSplit.name).slugify().s + (fileSplit.ext ? '.' + fileSplit.ext : '');
+      fileName =
+        S(fileSplit.name).slugify().s +
+        (fileSplit.ext ? "." + fileSplit.ext : "");
     }
 
     let fileCategory = category;
-    if (fileCategory !== undefined && fileCategory !== '') {
-      if (fileCategory.slice(-1) !== '/') {
-        fileCategory += '/';
+    if (fileCategory !== undefined && fileCategory !== "") {
+      if (fileCategory.slice(-1) !== "/") {
+        fileCategory += "/";
       }
-      if (fileCategory.charAt(0) === '/') {
+      if (fileCategory.charAt(0) === "/") {
         fileCategory = fileCategory.slice(1);
       }
     }
 
-    const fileHash = await hash.hashOfFile(buffer);
+    const fileHash = hash || await hash.hashOfFile(buffer);
 
     const params = {
-      ACL: 'public-read',
+      ACL: "public-read",
       Body: buffer,
       Bucket: this.bucket,
       ContentType: mimetype,
@@ -61,11 +68,11 @@ class S3Storage {
 
   async find(searchQuery, category, callback) {
     let fileCategory = category;
-    if (fileCategory !== undefined && fileCategory !== '') {
-      if (fileCategory.slice(-1) !== '/') {
-        fileCategory += '/';
+    if (fileCategory !== undefined && fileCategory !== "") {
+      if (fileCategory.slice(-1) !== "/") {
+        fileCategory += "/";
       }
-      if (fileCategory.charAt(0) === '/') {
+      if (fileCategory.charAt(0) === "/") {
         fileCategory = fileCategory.slice(1);
       }
     }
@@ -81,7 +88,7 @@ class S3Storage {
         output = data.Contents.map((object, i) => {
           return {
             hash: undefined,
-            category: (fileCategory !== '' ? fileCategory : null),
+            category: fileCategory !== "" ? fileCategory : null,
             filename: object.Key,
             size: object.Size,
             modify: object.LastModified
@@ -95,7 +102,7 @@ class S3Storage {
   async findOne(fileName, callback) {
     const params = {
       Bucket: this.bucket,
-      Key: fileName,
+      Key: fileName
     };
 
     await this.s3.getObject(params, function(err, data) {
@@ -118,7 +125,7 @@ class S3Storage {
   async getBuffer(fileName, callback) {
     const params = {
       Bucket: this.bucket,
-      Key: fileName,
+      Key: fileName
     };
 
     await this.s3.getObject(params, function(err, data) {
