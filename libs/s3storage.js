@@ -1,5 +1,5 @@
 const aws = require("aws-sdk");
-const hash = require("../services/file/hashOfFile");
+const createHash = require("../services/file/hashOfFile");
 const split = require("../services/file/splitFileName");
 const S = require("string");
 
@@ -44,7 +44,7 @@ class S3Storage {
       }
     }
 
-    const fileHash = hash || await hash.hashOfFile(buffer);
+    const fileHash = hash || (await createHash.hashOfFile(buffer));
 
     const params = {
       ACL: "public-read",

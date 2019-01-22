@@ -1,5 +1,5 @@
 const { request } = require("graphql-request");
-const hash = require("../file/hashOfFile");
+const createHash = require("../file/hashOfFile");
 const split = require("../file/splitFileName");
 const Jimp = require("jimp");
 
@@ -21,7 +21,7 @@ class MediaStorage {
       throw new Error("File specification failed");
     }
 
-    const fileHash = hash || (await hash.hashOfFile(buffer));
+    const fileHash = hash || (await createHash.hashOfFile(buffer));
 
     await this.findByHash(fileHash, async (err, data) => {
       // file not exists
