@@ -196,12 +196,17 @@ class MediaStorage {
             if (bufferData && bufferData.buffer) {
               // resize
               Jimp.read(bufferData.buffer)
-                .then(image =>
-                  image.resize(
-                    parseInt(newWidth, 10) || Jimp.AUTO,
-                    parseInt(newHeight, 10) || Jimp.AUTO
-                  )
-                )
+                .then(image => {
+                  if (parseInt(newHeight, 10) > parseInt(newWidth, 10))
+                    return image.resize(Jimp.AUTO, parseInt(newHeight, 10));
+                  
+                  return image.resize(parseInt(newWidth, 10), Jimp.AUTO);
+                })
+                .then(image => image.cover(
+                  parseInt(newWidth, 10),
+                  parseInt(newHeight, 10),
+                  Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_MIDDLE
+                ))
                 .then(image => {
                   image.getBuffer(
                     data.file.mimetype,
