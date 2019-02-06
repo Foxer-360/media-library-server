@@ -9,7 +9,7 @@ class MediaStorage {
     this.endpoint = prismaEndpoint;
   }
 
-  async storage(file, category, callback, hash = undefined) {
+  async storage(file, category, callback, hash = undefined, type) {
     const { originalname, buffer, mimetype, size } = file;
 
     if (
@@ -79,6 +79,19 @@ class MediaStorage {
     request(this.endpoint, query).then(data => {
       callback(null, data);
     });
+  }
+
+  delete(id, callback) {
+    const query = `
+      mutation {
+        deleteFile(where:{id: "${id}"}) {
+          id
+        }  
+      }
+    `;
+    request(this.endpoint, query).then(data => {
+      callback(null, data);
+    }).catch((err) => callback(err,null));
   }
 
   find(category, callback) {
@@ -199,14 +212,16 @@ class MediaStorage {
                 .then(image => {
                   if (parseInt(newHeight, 10) > parseInt(newWidth, 10))
                     return image.resize(Jimp.AUTO, parseInt(newHeight, 10));
-                  
+
                   return image.resize(parseInt(newWidth, 10), Jimp.AUTO);
                 })
-                .then(image => image.cover(
-                  parseInt(newWidth, 10),
-                  parseInt(newHeight, 10),
-                  Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_MIDDLE
-                ))
+                .then(image =>
+                  image.cover(
+                    parseInt(newWidth, 10),
+                    parseInt(newHeight, 10),
+                    Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_MIDDLE
+                  )
+                )
                 .then(image => {
                   image.getBuffer(
                     data.file.mimetype,
