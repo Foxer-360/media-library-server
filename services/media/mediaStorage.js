@@ -262,13 +262,11 @@ class MediaStorage {
                       // const resizeHash = await hash.hashOfFile(buffer);
 
                       optimizing.then((buffer) => {
-                        console.log(buffer);
                         // generate file name
                         const fileInfo = split.splitFileName(data.file.filename);
                         const newFileName = `${fileInfo.name}_${newWidth ||
                           "x"}_${newHeight || "x"}.${fileInfo.ext}`;
 
-                        console.log(data.file.category, newFileName);
                         const newFile = {
                           originalname: newFileName,
                           filename: newFileName,
