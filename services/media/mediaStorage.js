@@ -2,6 +2,8 @@ const { request } = require("graphql-request");
 const createHash = require("../file/hashOfFile");
 const split = require("../file/splitFileName");
 const Jimp = require("jimp");
+const imagemin = require('imagemin');
+const imageminMozJpeg = require('imagemin-mozjpeg');
 
 class MediaStorage {
   constructor(dataStorage, prismaEndpoint) {
@@ -21,9 +23,11 @@ class MediaStorage {
       throw new Error("File specification failed");
     }
 
+    
     const fileHash = hash || (await createHash.hashOfFile(buffer));
-
+    
     await this.findByHash(fileHash, async (err, data) => {
+
       // file not exists
       if (hash || (data && data.file !== undefined && data.file === null)) {
         // upload to storage
@@ -34,7 +38,6 @@ class MediaStorage {
             // save to prisma
             if (dataStorageData && dataStorageData.ETag) {
               // save uploaded file to MediaStorage
-
               if (!hash) {
                 this.saveToStorage(
                   dataStorageData,
@@ -43,6 +46,8 @@ class MediaStorage {
                   }
                 );
               }
+
+              callback(dataStorageErr, dataStorageData);
             } else {
               // unknown or error uploading
               callback(dataStorageErr, dataStorageData);
@@ -186,9 +191,23 @@ class MediaStorage {
     });
   }
 
+  optimizeWithMozJpeg(buffer) {
+    return new Promise(resolve =>
+      imagemin.buffer(buffer, {
+        plugins: [imageminMozJpeg({ progressive: true })]
+      })
+      .then(buffer => resolve(buffer))
+      .catch((e) => {
+        console.error('Could not optimize image with mozjpeg: ', e);
+        return buffer;
+      })
+    );
+  }
+
   async createDimension(fileId, newWidth, newHeight, callback) {
     // search file of id
     await this.findOne(fileId, (err, data) => {
+
       if (data && data.file) {
         // check mimetype
         switch (data.file.mimetype) {
@@ -199,7 +218,7 @@ class MediaStorage {
           case Jimp.MIME_TIFF:
             break;
           default:
-            callback("unsupported file format", null);
+            callback("Unsupported file format", null);
         }
 
         // search file content
@@ -209,12 +228,15 @@ class MediaStorage {
             if (bufferData && bufferData.buffer) {
               // resize
               Jimp.read(bufferData.buffer)
+                // resize image by ratio - there is opposite logic with ration because of covers
                 .then(image => {
-                  if (parseInt(newHeight, 10) > parseInt(newWidth, 10))
+                  if (parseInt(newHeight, 10) < parseInt(newWidth, 10)) {
                     return image.resize(Jimp.AUTO, parseInt(newHeight, 10));
+                  }
 
                   return image.resize(parseInt(newWidth, 10), Jimp.AUTO);
                 })
+                // create cover image - to be filled with image, no borders
                 .then(image =>
                   image.cover(
                     parseInt(newWidth, 10),
@@ -222,6 +244,7 @@ class MediaStorage {
                     Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_MIDDLE
                   )
                 )
+                // optimize if it's possible and save to storage
                 .then(image => {
                   image.getBuffer(
                     data.file.mimetype,
@@ -230,31 +253,42 @@ class MediaStorage {
                         callback(resizeErr, null);
                       }
 
+                      let optimizing = Promise.resolve(buffer);
+                      if (data.file.mimetype === 'image/jpeg') {
+                        optimizing = this.optimizeWithMozJpeg(buffer);
+                      }
+
                       // generate hash from resize buffer
                       // const resizeHash = await hash.hashOfFile(buffer);
 
-                      // generate file name
-                      const fileInfo = split.splitFileName(data.file.filename);
-                      const newFileName = `${fileInfo.name}_${newWidth ||
-                        "x"}_${newHeight || "x"}.${fileInfo.ext}`;
+                      optimizing.then((buffer) => {
+                        console.log(buffer);
+                        // generate file name
+                        const fileInfo = split.splitFileName(data.file.filename);
+                        const newFileName = `${fileInfo.name}_${newWidth ||
+                          "x"}_${newHeight || "x"}.${fileInfo.ext}`;
 
-                      const newFile = {
-                        originalname: newFileName,
-                        filename: newFileName,
-                        buffer: buffer,
-                        mimetype: data.file.mimetype,
-                        size: buffer.byteLength
-                      };
+                        console.log(data.file.category, newFileName);
+                        const newFile = {
+                          originalname: newFileName,
+                          filename: newFileName,
+                          buffer: buffer,
+                          mimetype: data.file.mimetype,
+                          size: buffer.byteLength
+                        };
 
-                      // save file to storage
-                      this.storage(
-                        newFile,
-                        data.file.category,
-                        (saveErr, saveData) => {
-                          callback(saveErr, saveData);
-                        },
-                        data.file.hash
-                      );
+                        // save file to storage
+                        this.storage(
+                          newFile,
+                          data.file.category,
+                          (saveErr, saveData) => {
+                            console.log(saveErr, saveData);
+                            callback(saveErr, saveData);
+                          },
+                          data.file.hash
+                        );
+                      })
+                      .catch((err) => consol.error(err))
                     }
                   );
                 });
