@@ -207,7 +207,6 @@ class MediaStorage {
   async createDimension(fileId, newWidth, newHeight, callback) {
     // search file of id
     await this.findOne(fileId, (err, data) => {
-
       if (data && data.file) {
         // check mimetype
         switch (data.file.mimetype) {
@@ -230,10 +229,10 @@ class MediaStorage {
               Jimp.read(bufferData.buffer)
                 // resize image by ratio - there is opposite logic with ration because of covers
                 .then(image => {
-                  if (parseInt(newHeight, 10) < parseInt(newWidth, 10)) {
-                    return image.resize(Jimp.AUTO, parseInt(newHeight, 10));
-                  }
+                  const originalRatio = image.getWidth() / image.getHeight();
+                  const newRatio = parseInt(newWidth, 10) / parseInt(newHeight, 10);
 
+                  if(originalRatio > newRatio) return image.resize(Jimp.AUTO, parseInt(newHeight, 10));
                   return image.resize(parseInt(newWidth, 10), Jimp.AUTO);
                 })
                 // create cover image - to be filled with image, no borders
@@ -254,7 +253,7 @@ class MediaStorage {
                       }
 
                       let optimizing = Promise.resolve(buffer);
-                      if (data.file.mimetype === 'image/jpeg') {
+                      if (data.file.mimetype === Jimp.MIME_JPEG) {
                         optimizing = this.optimizeWithMozJpeg(buffer);
                       }
 
