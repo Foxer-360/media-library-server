@@ -4,11 +4,19 @@ const split = require("../file/splitFileName");
 const Jimp = require("jimp");
 const imagemin = require('imagemin');
 const imageminMozJpeg = require('imagemin-mozjpeg');
+const imageminWebP = require('imagemin-webp');
 
 class MediaStorage {
   constructor(dataStorage, prismaEndpoint) {
     this.dataStorage = dataStorage;
     this.endpoint = prismaEndpoint;
+
+    this.supportedConversions = {
+      'webp': {
+        mime: 'image/webp',
+        convert: MediaStorage.convertToWebP
+      }
+    };
   }
 
   async storage(file, category, callback, hash = undefined, type) {
@@ -204,7 +212,28 @@ class MediaStorage {
     );
   }
 
-  async createDimension(fileId, newWidth, newHeight, callback) {
+  static convertToWebP(buffer) {
+    return new Promise(resolve =>
+      imagemin.buffer(buffer, {
+        plugins: [imageminWebP()]
+      })
+      .then(buffer => resolve(buffer))
+      .catch((e) => {
+        console.error('Could not convert image to WEBP: ', e);
+        return buffer;
+      })
+    );
+  }
+
+  convert(buffer, format) {
+    if (this.supportedConversions[format] && this.supportedConversions[format].convert) {
+      return this.supportedConversions[format].convert(buffer);
+    } else {
+      return Promise.reject('Invalid converter ' + format);
+    }
+  }
+
+  async createDimension(fileId, newWidth, newHeight, callback, outputFormat) {
     // search file of id
     await this.findOne(fileId, (err, data) => {
       if (data && data.file) {
@@ -253,24 +282,31 @@ class MediaStorage {
                       }
 
                       let optimizing = Promise.resolve(buffer);
-                      if (data.file.mimetype === Jimp.MIME_JPEG) {
+                      if (!outputFormat && (data.file.mimetype === Jimp.MIME_JPEG)) {
                         optimizing = this.optimizeWithMozJpeg(buffer);
+                      } else if (outputFormat) {
+                        optimizing = this.convert(buffer, outputFormat);
                       }
 
                       // generate hash from resize buffer
                       // const resizeHash = await hash.hashOfFile(buffer);
 
+                      convertedMime = this.supportedConversions(outputFormat);
+                      if (outputFormat && !convertedMime) {
+                        return callback('Unspecified MIME for ' + outputFormat, null);
+                      }
+
                       optimizing.then((buffer) => {
                         // generate file name
                         const fileInfo = split.splitFileName(data.file.filename);
                         const newFileName = `${fileInfo.name}_${newWidth ||
-                          "x"}_${newHeight || "x"}.${fileInfo.ext}`;
+                          "x"}_${newHeight || "x"}.${outputFormat || fileInfo.ext}`;
 
                         const newFile = {
                           originalname: newFileName,
                           filename: newFileName,
                           buffer: buffer,
-                          mimetype: data.file.mimetype,
+                          mimetype: convertedMime || data.file.mimetype,
                           size: buffer.byteLength
                         };
 
