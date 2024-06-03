@@ -25,7 +25,8 @@ router.post("/", function(req, res, next) {
         } else {
           res.send(data);
         }
-      }
+      },
+      req.body.format
     );
   } else {
     let param = "";
