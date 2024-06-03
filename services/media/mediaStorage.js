@@ -291,7 +291,7 @@ class MediaStorage {
                       // generate hash from resize buffer
                       // const resizeHash = await hash.hashOfFile(buffer);
 
-                      convertedMime = this.supportedConversions(outputFormat);
+                      convertedMime = this.supportedConversions[outputFormat].mime;
                       if (outputFormat && !convertedMime) {
                         return callback('Unspecified MIME for ' + outputFormat, null);
                       }
