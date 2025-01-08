@@ -51,6 +51,7 @@ class S3Storage {
       Body: buffer,
       Bucket: this.bucket,
       ContentType: mimetype,
+      CacheControl: "public, max-age=31536000",
       Key: `${fileCategory}${fileHash}_${fileName}`
     };
 
