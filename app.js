@@ -19,8 +19,8 @@ const uploadFile = require("./routes/uploadFile");
 
 app.use(cors());
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json({ limit: '20mb' }));
+app.use(bodyParser.urlencoded({ extended: false, limit: '20mb' }));
 app.use(cookieParser());
 
 app.use("/find", find);
@@ -34,4 +34,6 @@ app.use("/uploadFile", uploadFile);
 
 module.exports = app;
 
-console.log(`Application is listening on port ${process.env.PORT}`);
+app.listen(process.env.PORT, () => {
+  console.log(`Application is listening on port ${process.env.PORT}`);
+});
