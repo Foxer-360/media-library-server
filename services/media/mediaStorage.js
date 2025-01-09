@@ -51,13 +51,16 @@ class MediaStorage {
                   dataStorageData,
                   (saveUploadErr, saveUploadData) => {
                     console.log('Called callback #1');
-                    callback(saveUploadErr, saveUploadData);
+                    callback(saveUploadErr, {
+                      ...dataStorageData,
+                      ...saveUploadData
+                    });
                   }
                 );
+              } else {
+                console.log('Called callback #2');
+                callback(dataStorageErr, dataStorageData);
               }
-
-              console.log('Called callback #2');
-              callback(dataStorageErr, dataStorageData);
             } else {
               // unknown or error uploading
               console.log('Called callback #3');
