@@ -18,6 +18,7 @@ const findByFilename = require("./routes/findByFilename");
 const uploadFile = require("./routes/uploadFile");  
 
 app.use(cors());
+app.options('*', cors()); // Enable CORS also for all OPTION requests
 
 app.use(bodyParser.json({ limit: '20mb' }));
 app.use(bodyParser.urlencoded({ extended: false, limit: '20mb' }));
