@@ -53,7 +53,7 @@ class MediaStorage {
                     console.log('Called callback #1');
                     callback(saveUploadErr, {
                       ...dataStorageData,
-                      ...saveUploadData
+                      ...saveUploadData.createFile
                     });
                   }
                 );
