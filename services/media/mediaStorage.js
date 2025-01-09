@@ -50,20 +50,24 @@ class MediaStorage {
                 this.saveToStorage(
                   dataStorageData,
                   (saveUploadErr, saveUploadData) => {
+                    console.log('Called callback #1');
                     callback(saveUploadErr, saveUploadData);
                   }
                 );
               }
 
+              console.log('Called callback #2');
               callback(dataStorageErr, dataStorageData);
             } else {
               // unknown or error uploading
+              console.log('Called callback #3');
               callback(dataStorageErr, dataStorageData);
             }
           },
           fileHash
         );
       } else {
+        console.log('Called callback #4');
         callback(err, data);
       }
     });
