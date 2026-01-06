@@ -250,6 +250,7 @@ class MediaStorage {
             break;
           default:
             callback("Unsupported file format", null);
+            return;
         }
 
         // search file content
@@ -294,7 +295,7 @@ class MediaStorage {
                       // generate hash from resize buffer
                       // const resizeHash = await hash.hashOfFile(buffer);
 
-                      const convertedMime = this.supportedConversions[outputFormat].mime;
+                      const convertedMime = this.supportedConversions[outputFormat] && this.supportedConversions[outputFormat].mime;
                       if (outputFormat && !convertedMime) {
                         return callback('Unspecified MIME for ' + outputFormat, null);
                       }
@@ -327,7 +328,10 @@ class MediaStorage {
                       .catch((err) => consol.error(err))
                     }
                   );
-                });
+                })
+		.catch(e => {
+                  console.log(data, e); 
+		});
             } else {
               callback("Buffer of file not found", null);
             }
